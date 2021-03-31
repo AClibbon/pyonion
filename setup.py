@@ -12,13 +12,13 @@ with open(os.path.join(here, 'requirements-spark.txt')) as f:
     spark_reqs = f.read().splitlines()
 
 
-
 setup(
     name="pyonion",
-    use_scm_version = {
-        "root": "..",
+    use_scm_version={
+        "root": ".",
         "relative_to": __file__,
-        "local_scheme": "node-and-timestamp"
+        "local_scheme": "no-local-version",
+        "version_scheme": "guess-next-dev"
     },
     setup_requires=['setuptools_scm'],
     author="KAPUK",
@@ -26,9 +26,13 @@ setup(
     description="A minimal implementation of the ONe Instance ONly algorithm",
     long_description=long_description,
     long_description_content_type="text/markdown",
-    package_dir={"": "src"},
-    packages=find_packages(where="src"),
+    package_dir={"": "pyonion"},
+    packages=find_packages(where="pyonion"),
     install_requires=[],
+    extras_require={
+        "dev": dev_reqs,
+        "spark": spark_reqs
+    },
     include_package_data=False,
     url="https://github.com/AClibbon/pyonion",
     classifiers=[
