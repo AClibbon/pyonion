@@ -62,7 +62,8 @@ The simplest way to avoid loading the full dataset is to read chunks of data in 
 
 ```python
 import pandas as pd
-from pyonion import simple_tokenizer
+from pyonion.utils import simple_tokenizer
+
 
 def generate_corpus(data_location, chunksize):
     for df_chunk in pd.read_csv(data_location, usecols=['Verbatim'], chunksize=chunksize):
