@@ -24,6 +24,7 @@ def find_ngram_counts(corpus, n, check_against, use_hashing, join_char):
 
 
 def get_n_grams_w_checking(tokens, n, check_against, use_hashing, join_char: str) -> List:
+    """Discover n-grams whose n-1-grams exist in the set check_against"""
     assert n > 1, "This won't work for unigrams as no components"
 
     n_grams = []
