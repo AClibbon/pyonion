@@ -1,4 +1,4 @@
-from setuptools import setup, find_packages
+from setuptools import setup
 import os
 
 here = os.path.abspath(os.path.dirname(__file__))
@@ -15,8 +15,6 @@ with open(os.path.join(here, 'requirements-spark.txt')) as f:
 setup(
     name="pyonion",
     use_scm_version={
-        "root": ".",
-        "relative_to": __file__,
         "local_scheme": "no-local-version",
         "version_scheme": "guess-next-dev"
     },
@@ -26,14 +24,15 @@ setup(
     description="A minimal implementation of the ONe Instance ONly algorithm",
     long_description=long_description,
     long_description_content_type="text/markdown",
-    package_dir={"": "pyonion"},
-    packages=find_packages(where="pyonion"),
+    packages=['pyonion'],
     install_requires=[],
     extras_require={
         "dev": dev_reqs,
         "spark": spark_reqs
     },
-    include_package_data=False,
+    package_data={
+        'pyonion': ['data/*'],
+    },
     url="https://github.com/AClibbon/pyonion",
     classifiers=[
         "Programming Language :: Python :: 3",
