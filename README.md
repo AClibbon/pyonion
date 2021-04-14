@@ -54,10 +54,10 @@ This will discover all sequences of words of length 5 that are repeated in the c
 ```
 Use these ngrams to then remove documents that contain a lot of (>20%) duplicated content. Note that the clean text method returns an iterator.
 ```python
-iter_clean_corpus = remover.clean_text(corpus, duplicated_ngrams, threshold=.2, mode=CleaningMode.FIRST)
+iter_clean_corpus = remover.iter_clean_text(corpus, duplicated_ngrams, threshold=.2, mode=CleaningMode.FIRST)
 clean_corpus = [clean_doc for clean_doc in iter_clean_corpus]
 ```
-Note that the second entry has been removed entirely, as it was more than 20% duplicate content, leaving only an empty string. The number alongside each sentence is the resemblance between the original document and 
+Note that the second entry has been removed entirely, as it was more than 20% duplicate content, leaving only an empty string. The number alongside each sentence is the resemblance between the original document and the set of seen duplicates.
 ```python
 >>>clean_corpus
 [
@@ -67,44 +67,43 @@ Note that the second entry has been removed entirely, as it was more than 20% du
 ```
 
 # Advanced Usage
-### Creating your own corpus generator
-The corpus generator passed to the `find_duplicated_ngrams` must be a function that returns an iterable of iterables. Practically this means it should be something that can be looped over that returns lists of lists. 
-
-The simplest way to avoid loading the full dataset is to read chunks of data in as they are required. This does mean that the full dataset is read once per n-gram (i.e. 7-grams require 7 full data reads). The simplest corpus generator uses Pandas to read data in chunks, do a little processing and then yield those chunks.
+### Creating your own corpus provider
+Corpora can come from many sources, and rather than anticipate them all it is possible to extend the `CorpusProvider` class and override its methods with your own. For example if I wished to read my data from .csv using Pandas then I could create a `CSVCorpusProvider` class such as:
 
 ```python
 import pandas as pd
-from pyonion.utils import simple_tokenizer
+from pyonion.remover import CorpusProvider
+from typing import Iterable
 
 
-def generate_corpus(data_location, chunksize):
-    for df_chunk in pd.read_csv(data_location, usecols=['Verbatim'], chunksize=chunksize):
-        df_chunk['Verbatim'].fillna('', inplace=True)
-        corpus = df_chunk['Verbatim'].apply(simple_tokenizer)
-        yield corpus
+class CSVCorpusProvider(CorpusProvider):
+
+    CHUNKSIZE = 10_000  # Don't whole CSV into memory at once!
+    
+    def __init__(self, csv_filepath, text_column):
+        super().__init__()
+        self.filepath = csv_filepath
+        self.text_column = text_column
+
+    def _read_docs(self):
+        print("Reading data")
+        for chunk in pd.read_csv(self.filepath, 
+                                 chunksize=self.CHUNKSIZE,
+                                 usecols=[self.text_column]):
+            print("Providing next chunk")
+            chunk.fillna('', inplace=True)
+            for doc in chunk[self.text_column]:
+                yield doc 
+        
+    def iter_docs(self) -> Iterable[str]:
+        yield from self._read_docs()
+
+    def iter_tokens(self) -> Iterable[str]:
+        for doc in self._read_docs():
+            tokens = self.tokenizer(doc)
+            yield tokens
 ```
 
-To use this corpus generator function it is easiest to create a partial function using functools. This function can then be passed as an argument to `find_duplicated_ngrams`.
-
-```python
-from functools import partial
-
-corpus_generator = partial(generate_corpus, data_location=data_location, chunksize=100_000)
-duplicated_ngrams = find_duplicated_ngrams(corpus_generator, n_gram=5, threshold=2)
-```
-
-To then clean the corpus the same generator can be re-used in the `clean_text` function. However in this case to again preserve memory the cleaned text can be written out in chunks.
-
-```python
-output_path = 'clean_data.txt'
-
-for clean_chunk in clean_text(corpus_generator,
-                              duplicated_ngrams,
-                              threshold=.2,
-                              mode='oneinstance'):
-    with open(output_path, 'w+') as f:
-        f.writelines(clean_chunk)
-```
 
 ### Using hashed n-grams
 n-grams are stored internally simply as strings joined using the `join_char` selected - the default being `'_'`. When working with a large corpus the set of n-grams becomes the greatest memory constraint. To reduce the memory usage 64-bit (int) hashes of n-grams are stored, rather than the strings themselves. This dramatically reduces the memory requirements of the process, at the cost of the n-grams themselves being unrecoverable from the hashes and the very small chance of a collision between hashes. To use hashed values set the argument `hash_values` to be `True`.
@@ -112,8 +111,4 @@ n-grams are stored internally simply as strings joined using the `join_char` sel
 ```python
 remover = DuplicateRemover(n_gram=5, hash_values=True)
 ```
-If you try to look at the results of `find_duplicated_ngrams` you'll notice that integers are returned rather than text!
-
-
-
-
+If you try to look at the results of `find_duplicated_ngrams` you'll notice that integers are returned rather than text! This doesn't affect the cleaned documents returned, as the hashing is only applied to the n-grams.
