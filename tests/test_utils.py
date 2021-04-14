@@ -6,7 +6,8 @@ from pyonion.utils import calc_resemblance, get_n_grams_w_checking, simple_token
 resemblance_data = [
     ({'a', 'b', 'c', 'd'}, {'d', 'e', 'f'}, .25),
     ({'a', 'b', 'c', 'd'}, {'e', 'f'}, 0.),
-    ({'a', 'b', 'c', 'd'}, {'a', 'b', 'c', 'd', 'e', 'f'}, 1.)
+    ({'a', 'b', 'c', 'd'}, {'a', 'b', 'c', 'd', 'e', 'f'}, 1.),
+    (set(), {'a', 'b', 'c'}, 0.)
 ]
 n_grams_checking_data = [
     (['the', 'cat', 'sat', 'on', 'the', 'mat'], 4, ['the_cat_sat', 'cat_sat_on', 'on_the_mat'], ['the_cat_sat_on']),

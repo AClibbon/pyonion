@@ -56,8 +56,11 @@ def calc_resemblance(doc_ngrams: Set, comparison_ngrams: Set) -> float:
     Discover ratio of document n_grams present in the target set
     """
     n_ngrams = len(doc_ngrams)
-    n_in_both = len(doc_ngrams.intersection(comparison_ngrams))
-    return n_in_both / n_ngrams
+    if n_ngrams == 0:
+        return 0.
+    else:
+        n_in_both = len(doc_ngrams.intersection(comparison_ngrams))
+        return n_in_both / n_ngrams
 
 
 def simple_blockizer(text: str) -> List[str]:
