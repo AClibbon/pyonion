@@ -191,6 +191,7 @@ class DuplicateRemover:
         :param threshold: If resemblance with duplicated text is above this then remove this document.
         :return: An iterator of cleaned documents.
         """
+        print('HALLO')
         if mode is CleaningMode.FIRST:
             yield from self._clean_text_first(corpus, duplicated_ngrams, threshold)
 
@@ -234,6 +235,7 @@ class DuplicateRemover:
         :param threshold: If resemblance with duplicated text is above this then remove this document.
         :return: An iterator of cleaned documents.
         """
+        print(f'iter_clean_text_by_ngram called with {mode}')
         if mode is CleaningMode.FIRST:
             yield from self._clean_text_by_ngram_first(corpus, duplicated_ngrams, threshold)
 
@@ -244,15 +246,16 @@ class DuplicateRemover:
                                    duplicated_ngrams, threshold):
         """Remove ngrams if you have seen them before, but leave them the
         first time around """
+        print(f'we are here: _clean_text_by_ngram_first')
         if self.hash_values:
             logger.warning("This might not work with hash_values")
 
         seen_n_grams = set()
         for document in corpus.iter_tokens():
-            doc_ngrams = get_n_grams(document, self.n_gram, self.hash_values,
-                                     self.join_char)
+            doc_ngrams = set(get_n_grams(document, self.n_gram,
+                                        self.hash_values,
+                                     self.join_char))
             resemblance = calc_resemblance(doc_ngrams, seen_n_grams)
-
 
             # re-construct the document but kick out anything that is a
             # duplicated ngram:
@@ -275,11 +278,11 @@ class DuplicateRemover:
             spans = flatten(spans)
             spans = merge_spans(spans)
             complements = generate_complement_spans(doc_as_string, spans)
-
-            trimmed_text = ''.join(
+            # print(f'complements: {complements}')
+            trimmed_text = "__".join(
                 [doc_as_string[segment[0]:segment[1]] for segment in
                  complements])
-
+            # print(f'tt: {trimmed_text}')
             yield trimmed_text, resemblance
 
     def _clean_text_by_ngram_all(self, corpus: CorpusProvider,
@@ -288,8 +291,9 @@ class DuplicateRemover:
         if self.hash_values:
             logger.warning("This might not work with hash_values")
         for document in corpus.iter_tokens():
-            doc_ngrams = get_n_grams(document, self.n_gram, self.hash_values,
-                            self.join_char)
+            doc_ngrams = set(get_n_grams(document, self.n_gram,
+                                        self.hash_values,
+                            self.join_char))
             resemblance = calc_resemblance(doc_ngrams, duplicated_ngrams)
 
             # re-construct the document but kick out anything that is a
@@ -310,11 +314,11 @@ class DuplicateRemover:
             spans = flatten(spans)
             spans = merge_spans(spans)
             complements = generate_complement_spans(doc_as_string, spans)
-
-            trimmed_text = ''.join(
+            # print(f'complements: {complements}')
+            trimmed_text = "__".join(
                 [doc_as_string[segment[0]:segment[1]] for segment in
                  complements])
-
+            # print(f'tt: {trimmed_text}')
             yield trimmed_text, resemblance
 
 
