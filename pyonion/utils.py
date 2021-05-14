@@ -71,3 +71,20 @@ def simple_blockizer(text: str) -> List[str]:
 def simple_tokenizer(sentence: str) -> List[str]:
     """Splits text at whitespace markers"""
     return [token for token in TOKENIZE_RE.split(sentence) if len(token) > 0]
+
+
+def generate_complement_spans(doc_as_string, spans):
+    # generate the negative/complement of a span list:
+    # you start with 0 and then for each span:
+    # the start is the same as the previous complement span end
+    # the end is the same as the next complement span start
+    # until you reach end of string
+    last_index = len(doc_as_string)
+    complements = [(0, last_index)]
+    for span in spans:
+        previous_compl = complements.pop()
+        left_span = (previous_compl[0], span[0])
+        complements.append(left_span)
+        right_span = (span[1], last_index)
+        complements.append(right_span)
+    return complements

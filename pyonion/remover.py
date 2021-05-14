@@ -3,10 +3,12 @@ import re
 import time
 from abc import ABC
 from enum import Enum
-from typing import Set, Iterable, List
+from typing import Set, Iterable, List, Tuple
 
+from stan_cl.core.categoriser.highlight_matches import merge_spans
+from stan_cl.core.categoriser.utils import flatten
 from .utils import (find_unigram_counts, find_ngram_counts, get_n_grams, calc_resemblance, simple_tokenizer,
-                    simple_blockizer)
+                    simple_blockizer, generate_complement_spans)
 
 logger = logging.getLogger(__name__)
 
@@ -178,7 +180,7 @@ class DuplicateRemover:
         return duplicated_ngrams
 
     def iter_clean_text(self, corpus: CorpusProvider, duplicated_ngrams: Set[str], threshold: float,
-                        mode: CleaningMode) -> Iterable[str]:
+                        mode: CleaningMode) -> Iterable[Tuple[str, float]]:
         """
         Removes documents with a high ratio of duplicated text
 
@@ -218,6 +220,103 @@ class DuplicateRemover:
                 yield '', resemblance
             else:
                 yield ' '.join(document), resemblance
+
+    def iter_clean_text_by_ngram(self, corpus: CorpusProvider,
+                               duplicated_ngrams: Set[str], threshold: float,
+                        mode: CleaningMode) -> Iterable[str]:
+        """
+        Removes duplicated ngrams from text, leaves the rest
+
+        :param corpus: Corpus provider
+        :param mode: Either 'first' or 'all'. Behaviour when encountering duplicated text. If 'first' then will keep the
+                     first occurrence encountered, else if set to all will remove all occurrences seen.
+        :param duplicated_ngrams: Set of duplicated ngrams - only consider these when looking at resemblence.
+        :param threshold: If resemblance with duplicated text is above this then remove this document.
+        :return: An iterator of cleaned documents.
+        """
+        if mode is CleaningMode.FIRST:
+            yield from self._clean_text_by_ngram_first(corpus, duplicated_ngrams, threshold)
+
+        elif mode is CleaningMode.ALL:
+            yield from self._clean_text_by_ngram_all(corpus, duplicated_ngrams, threshold)
+
+    def _clean_text_by_ngram_first(self, corpus: CorpusProvider,
+                                   duplicated_ngrams, threshold):
+        """Remove ngrams if you have seen them before, but leave them the
+        first time around """
+        if self.hash_values:
+            logger.warning("This might not work with hash_values")
+
+        seen_n_grams = set()
+        for document in corpus.iter_tokens():
+            doc_ngrams = get_n_grams(document, self.n_gram, self.hash_values,
+                                     self.join_char)
+            resemblance = calc_resemblance(doc_ngrams, seen_n_grams)
+
+
+            # re-construct the document but kick out anything that is a
+            # duplicated ngram:
+            ngrams_2_remove = [doc_ngram for doc_ngram in doc_ngrams if
+                               doc_ngram in seen_n_grams]
+            seen_n_grams.update(doc_ngrams.intersection(duplicated_ngrams))
+            #TODO the below is all identical with the sister function,
+            # can we put it into a function?
+            # get spans for these ngrams
+            ngrams_2_remove = [x.replace(self.join_char, ' ') for x in
+                               ngrams_2_remove]
+            doc_as_string = ' '.join(document)
+            spans = []
+            for ngram_2_remove in ngrams_2_remove:
+                pattern = re.compile(pattern=ngram_2_remove)
+                positions = [x.span() for x in
+                             list(re.finditer(pattern, doc_as_string))]
+                spans.extend(positions)
+            # merge spans
+            spans = flatten(spans)
+            spans = merge_spans(spans)
+            complements = generate_complement_spans(doc_as_string, spans)
+
+            trimmed_text = ''.join(
+                [doc_as_string[segment[0]:segment[1]] for segment in
+                 complements])
+
+            yield trimmed_text, resemblance
+
+    def _clean_text_by_ngram_all(self, corpus: CorpusProvider,
+                                   duplicated_ngrams, threshold):
+        """Remove ALL ngrams that are duplicated"""
+        if self.hash_values:
+            logger.warning("This might not work with hash_values")
+        for document in corpus.iter_tokens():
+            doc_ngrams = get_n_grams(document, self.n_gram, self.hash_values,
+                            self.join_char)
+            resemblance = calc_resemblance(doc_ngrams, duplicated_ngrams)
+
+            # re-construct the document but kick out anything that is a
+            # duplicated ngram:
+            ngrams_2_remove = [doc_ngram for doc_ngram in doc_ngrams if
+                              doc_ngram in duplicated_ngrams]
+            # get spans for these ngrams
+            ngrams_2_remove = [x.replace(self.join_char,' ') for x in
+                               ngrams_2_remove]
+            doc_as_string = ' '.join(document)
+            spans = []
+            for ngram_2_remove in ngrams_2_remove:
+                pattern = re.compile(pattern=ngram_2_remove)
+                positions = [x.span() for x in
+                             list(re.finditer(pattern, doc_as_string))]
+                spans.extend(positions)
+            # merge spans
+            spans = flatten(spans)
+            spans = merge_spans(spans)
+            complements = generate_complement_spans(doc_as_string, spans)
+
+            trimmed_text = ''.join(
+                [doc_as_string[segment[0]:segment[1]] for segment in
+                 complements])
+
+            yield trimmed_text, resemblance
+
 
     def iter_clean_text_in_blocks(self, corpus: CorpusProvider, duplicated_ngrams: Set[str], threshold: float,
                                   mode: CleaningMode) -> Iterable[str]:
