@@ -5,10 +5,8 @@ from abc import ABC
 from enum import Enum
 from typing import Set, Iterable, List, Tuple
 
-from stan_cl.core.categoriser.highlight_matches import merge_spans
-from stan_cl.core.categoriser.utils import flatten
 from .utils import (find_unigram_counts, find_ngram_counts, get_n_grams, calc_resemblance, simple_tokenizer,
-                    simple_blockizer, generate_complement_spans)
+                    simple_blockizer, scrub_ngrams)
 
 logger = logging.getLogger(__name__)
 
@@ -191,7 +189,6 @@ class DuplicateRemover:
         :param threshold: If resemblance with duplicated text is above this then remove this document.
         :return: An iterator of cleaned documents.
         """
-        print('HALLO')
         if mode is CleaningMode.FIRST:
             yield from self._clean_text_first(corpus, duplicated_ngrams, threshold)
 
@@ -235,7 +232,6 @@ class DuplicateRemover:
         :param threshold: If resemblance with duplicated text is above this then remove this document.
         :return: An iterator of cleaned documents.
         """
-        print(f'iter_clean_text_by_ngram called with {mode}')
         if mode is CleaningMode.FIRST:
             yield from self._clean_text_by_ngram_first(corpus, duplicated_ngrams, threshold)
 
@@ -246,7 +242,6 @@ class DuplicateRemover:
                                    duplicated_ngrams, threshold):
         """Remove ngrams if you have seen them before, but leave them the
         first time around """
-        print(f'we are here: _clean_text_by_ngram_first')
         if self.hash_values:
             logger.warning("This might not work with hash_values")
 
@@ -262,28 +257,12 @@ class DuplicateRemover:
             ngrams_2_remove = [doc_ngram for doc_ngram in doc_ngrams if
                                doc_ngram in seen_n_grams]
             seen_n_grams.update(doc_ngrams.intersection(duplicated_ngrams))
-            #TODO the below is all identical with the sister function,
-            # can we put it into a function?
-            # get spans for these ngrams
-            ngrams_2_remove = [x.replace(self.join_char, ' ') for x in
-                               ngrams_2_remove]
-            doc_as_string = ' '.join(document)
-            spans = []
-            for ngram_2_remove in ngrams_2_remove:
-                pattern = re.compile(pattern=ngram_2_remove)
-                positions = [x.span() for x in
-                             list(re.finditer(pattern, doc_as_string))]
-                spans.extend(positions)
-            # merge spans
-            spans = flatten(spans)
-            spans = merge_spans(spans)
-            complements = generate_complement_spans(doc_as_string, spans)
-            # print(f'complements: {complements}')
-            trimmed_text = "__".join(
-                [doc_as_string[segment[0]:segment[1]] for segment in
-                 complements])
-            # print(f'tt: {trimmed_text}')
+
+            trimmed_text = scrub_ngrams(document, ngrams_2_remove, self.join_char)
+
             yield trimmed_text, resemblance
+
+
 
     def _clean_text_by_ngram_all(self, corpus: CorpusProvider,
                                    duplicated_ngrams, threshold):
@@ -300,25 +279,8 @@ class DuplicateRemover:
             # duplicated ngram:
             ngrams_2_remove = [doc_ngram for doc_ngram in doc_ngrams if
                               doc_ngram in duplicated_ngrams]
-            # get spans for these ngrams
-            ngrams_2_remove = [x.replace(self.join_char,' ') for x in
-                               ngrams_2_remove]
-            doc_as_string = ' '.join(document)
-            spans = []
-            for ngram_2_remove in ngrams_2_remove:
-                pattern = re.compile(pattern=ngram_2_remove)
-                positions = [x.span() for x in
-                             list(re.finditer(pattern, doc_as_string))]
-                spans.extend(positions)
-            # merge spans
-            spans = flatten(spans)
-            spans = merge_spans(spans)
-            complements = generate_complement_spans(doc_as_string, spans)
-            # print(f'complements: {complements}')
-            trimmed_text = "__".join(
-                [doc_as_string[segment[0]:segment[1]] for segment in
-                 complements])
-            # print(f'tt: {trimmed_text}')
+
+            trimmed_text = scrub_ngrams(document, ngrams_2_remove, self.join_char)
             yield trimmed_text, resemblance
 
 
@@ -371,3 +333,4 @@ class DuplicateRemover:
                 if resemblance < threshold:
                     clean_blocks.append(block)
             yield BLOCK_JOIN_CHAR.join(clean_blocks)
+

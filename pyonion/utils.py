@@ -2,6 +2,8 @@ import re
 from collections import Counter
 from typing import List, Set
 
+from stan_cl.core.categoriser.highlight_matches import merge_spans
+from stan_cl.core.categoriser.utils import flatten
 
 NEWLINES_RE = re.compile(r"(?:[\n\r] *){2,}")
 TOKENIZE_RE = re.compile(r"\W+")
@@ -88,3 +90,24 @@ def generate_complement_spans(doc_as_string, spans):
         right_span = (span[1], last_index)
         complements.append(right_span)
     return complements
+
+
+def scrub_ngrams(document, ngrams_2_remove, join_char):
+    """Removes ngrams from a document."""
+    ngrams_2_remove = [x.replace(join_char, ' ') for x in
+                       ngrams_2_remove]
+    doc_as_string = ' '.join(document)
+    spans = []
+    for ngram_2_remove in ngrams_2_remove:
+        pattern = re.compile(pattern=ngram_2_remove)
+        positions = [x.span() for x in
+                     list(re.finditer(pattern, doc_as_string))]
+        spans.extend(positions)
+    # merge spans
+    spans = flatten(spans)
+    spans = merge_spans(spans)
+    complements = generate_complement_spans(doc_as_string, spans)
+    trimmed_text = "__".join(
+        [doc_as_string[segment[0]:segment[1]] for segment in
+         complements])
+    return trimmed_text
