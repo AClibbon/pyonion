@@ -220,8 +220,8 @@ class DuplicateRemover:
                 yield ' '.join(document), resemblance
 
     def iter_clean_text_by_ngram(self, corpus: CorpusProvider,
-                               duplicated_ngrams: Set[str], threshold: float,
-                        mode: CleaningMode) -> Iterable[str]:
+                               duplicated_ngrams: Set[str],
+                        mode: CleaningMode) -> Iterable[Tuple[str, float]]:
         """
         Removes duplicated ngrams from text, leaves the rest
 
@@ -229,21 +229,20 @@ class DuplicateRemover:
         :param mode: Either 'first' or 'all'. Behaviour when encountering duplicated text. If 'first' then will keep the
                      first occurrence encountered, else if set to all will remove all occurrences seen.
         :param duplicated_ngrams: Set of duplicated ngrams - only consider these when looking at resemblence.
-        :param threshold: If resemblance with duplicated text is above this then remove this document.
         :return: An iterator of cleaned documents.
         """
         if mode is CleaningMode.FIRST:
-            yield from self._clean_text_by_ngram_first(corpus, duplicated_ngrams, threshold)
+            yield from self._clean_text_by_ngram_first(corpus, duplicated_ngrams)
 
         elif mode is CleaningMode.ALL:
-            yield from self._clean_text_by_ngram_all(corpus, duplicated_ngrams, threshold)
+            yield from self._clean_text_by_ngram_all(corpus, duplicated_ngrams)
 
     def _clean_text_by_ngram_first(self, corpus: CorpusProvider,
-                                   duplicated_ngrams, threshold):
+                                   duplicated_ngrams):
         """Remove ngrams if you have seen them before, but leave them the
         first time around """
         if self.hash_values:
-            logger.warning("This might not work with hash_values")
+            logger.warning("This does not work with hash_values")
 
         seen_n_grams = set()
         for document in corpus.iter_tokens():
@@ -265,10 +264,10 @@ class DuplicateRemover:
 
 
     def _clean_text_by_ngram_all(self, corpus: CorpusProvider,
-                                   duplicated_ngrams, threshold):
+                                   duplicated_ngrams):
         """Remove ALL ngrams that are duplicated"""
         if self.hash_values:
-            logger.warning("This might not work with hash_values")
+            logger.warning("This does not work with hash_values")
         for document in corpus.iter_tokens():
             doc_ngrams = set(get_n_grams(document, self.n_gram,
                                         self.hash_values,

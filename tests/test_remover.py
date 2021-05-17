@@ -135,7 +135,6 @@ def test_iter_clean_text_by_ngram_all():
     clean_corpus = [doc for doc, _ in
                     dr.iter_clean_text_by_ngram(corpus=corpus_provider,
                                                  duplicated_ngrams=duplicated,
-                                                 threshold=.5,
                                                  mode=CleaningMode.ALL)]
 
     assert clean_corpus == expected_cleaned
@@ -166,7 +165,6 @@ def test_iter_clean_text_by_ngram_first():
     clean_corpus = [doc for doc, _ in
                     dr.iter_clean_text_by_ngram(corpus=corpus_provider,
                                                  duplicated_ngrams=duplicated,
-                                                 threshold=.5,
                                                  mode=CleaningMode.FIRST)]
 
     assert clean_corpus == expected_cleaned
@@ -191,7 +189,6 @@ def test_iter_clean_text_by_ngram_all_1():
     clean_corpus = [doc for doc, _ in
                     dr.iter_clean_text_by_ngram(corpus=corpus_provider,
                                                  duplicated_ngrams=duplicated,
-                                                 threshold=.5,
                                                  mode=CleaningMode.ALL)]
 
     assert clean_corpus == expected_cleaned
@@ -215,7 +212,6 @@ def test_iter_clean_text_by_ngram_first_1():
     clean_corpus = [doc for doc, _ in
                     dr.iter_clean_text_by_ngram(corpus=corpus_provider,
                                                  duplicated_ngrams=duplicated,
-                                                 threshold=.5,
                                                  mode=CleaningMode.FIRST)]
 
     assert clean_corpus == expected_cleaned
