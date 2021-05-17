@@ -2,6 +2,8 @@ import re
 from collections import Counter
 from typing import List, Set
 
+from stan_cl.core.categoriser.highlight_matches import merge_spans
+from stan_cl.core.categoriser.utils import flatten
 
 NEWLINES_RE = re.compile(r"(?:[\n\r] *){2,}")
 TOKENIZE_RE = re.compile(r"\W+")
@@ -71,3 +73,41 @@ def simple_blockizer(text: str) -> List[str]:
 def simple_tokenizer(sentence: str) -> List[str]:
     """Splits text at whitespace markers"""
     return [token for token in TOKENIZE_RE.split(sentence) if len(token) > 0]
+
+
+def generate_complement_spans(doc_as_string, spans):
+    # generate the negative/complement of a span list:
+    # you start with 0 and then for each span:
+    # the start is the same as the previous complement span end
+    # the end is the same as the next complement span start
+    # until you reach end of string
+    last_index = len(doc_as_string)
+    complements = [(0, last_index)]
+    for span in spans:
+        previous_compl = complements.pop()
+        left_span = (previous_compl[0], span[0])
+        complements.append(left_span)
+        right_span = (span[1], last_index)
+        complements.append(right_span)
+    return complements
+
+
+def scrub_ngrams(document, ngrams_2_remove, join_char):
+    """Removes ngrams from a document."""
+    ngrams_2_remove = [x.replace(join_char, ' ') for x in
+                       ngrams_2_remove]
+    doc_as_string = ' '.join(document)
+    spans = []
+    for ngram_2_remove in ngrams_2_remove:
+        pattern = re.compile(pattern=ngram_2_remove)
+        positions = [x.span() for x in
+                     list(re.finditer(pattern, doc_as_string))]
+        spans.extend(positions)
+    # merge spans
+    spans = flatten(spans)
+    spans = merge_spans(spans)
+    complements = generate_complement_spans(doc_as_string, spans)
+    trimmed_text = "__".join(
+        [doc_as_string[segment[0]:segment[1]] for segment in
+         complements])
+    return trimmed_text

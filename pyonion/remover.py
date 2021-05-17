@@ -3,10 +3,10 @@ import re
 import time
 from abc import ABC
 from enum import Enum
-from typing import Set, Iterable, List
+from typing import Set, Iterable, List, Tuple
 
 from .utils import (find_unigram_counts, find_ngram_counts, get_n_grams, calc_resemblance, simple_tokenizer,
-                    simple_blockizer)
+                    simple_blockizer, scrub_ngrams)
 
 logger = logging.getLogger(__name__)
 
@@ -178,7 +178,7 @@ class DuplicateRemover:
         return duplicated_ngrams
 
     def iter_clean_text(self, corpus: CorpusProvider, duplicated_ngrams: Set[str], threshold: float,
-                        mode: CleaningMode) -> Iterable[str]:
+                        mode: CleaningMode) -> Iterable[Tuple[str, float]]:
         """
         Removes documents with a high ratio of duplicated text
 
@@ -218,6 +218,70 @@ class DuplicateRemover:
                 yield '', resemblance
             else:
                 yield ' '.join(document), resemblance
+
+    def iter_clean_text_by_ngram(self, corpus: CorpusProvider,
+                               duplicated_ngrams: Set[str],
+                        mode: CleaningMode) -> Iterable[Tuple[str, float]]:
+        """
+        Removes duplicated ngrams from text, leaves the rest
+
+        :param corpus: Corpus provider
+        :param mode: Either 'first' or 'all'. Behaviour when encountering duplicated text. If 'first' then will keep the
+                     first occurrence encountered, else if set to all will remove all occurrences seen.
+        :param duplicated_ngrams: Set of duplicated ngrams - only consider these when looking at resemblence.
+        :return: An iterator of cleaned documents.
+        """
+        if mode is CleaningMode.FIRST:
+            yield from self._clean_text_by_ngram_first(corpus, duplicated_ngrams)
+
+        elif mode is CleaningMode.ALL:
+            yield from self._clean_text_by_ngram_all(corpus, duplicated_ngrams)
+
+    def _clean_text_by_ngram_first(self, corpus: CorpusProvider,
+                                   duplicated_ngrams):
+        """Remove ngrams if you have seen them before, but leave them the
+        first time around """
+        if self.hash_values:
+            logger.warning("This does not work with hash_values")
+
+        seen_n_grams = set()
+        for document in corpus.iter_tokens():
+            doc_ngrams = set(get_n_grams(document, self.n_gram,
+                                        self.hash_values,
+                                     self.join_char))
+            resemblance = calc_resemblance(doc_ngrams, seen_n_grams)
+
+            # re-construct the document but kick out anything that is a
+            # duplicated ngram:
+            ngrams_2_remove = [doc_ngram for doc_ngram in doc_ngrams if
+                               doc_ngram in seen_n_grams]
+            seen_n_grams.update(doc_ngrams.intersection(duplicated_ngrams))
+
+            trimmed_text = scrub_ngrams(document, ngrams_2_remove, self.join_char)
+
+            yield trimmed_text, resemblance
+
+
+
+    def _clean_text_by_ngram_all(self, corpus: CorpusProvider,
+                                   duplicated_ngrams):
+        """Remove ALL ngrams that are duplicated"""
+        if self.hash_values:
+            logger.warning("This does not work with hash_values")
+        for document in corpus.iter_tokens():
+            doc_ngrams = set(get_n_grams(document, self.n_gram,
+                                        self.hash_values,
+                            self.join_char))
+            resemblance = calc_resemblance(doc_ngrams, duplicated_ngrams)
+
+            # re-construct the document but kick out anything that is a
+            # duplicated ngram:
+            ngrams_2_remove = [doc_ngram for doc_ngram in doc_ngrams if
+                              doc_ngram in duplicated_ngrams]
+
+            trimmed_text = scrub_ngrams(document, ngrams_2_remove, self.join_char)
+            yield trimmed_text, resemblance
+
 
     def iter_clean_text_in_blocks(self, corpus: CorpusProvider, duplicated_ngrams: Set[str], threshold: float,
                                   mode: CleaningMode) -> Iterable[str]:
@@ -268,3 +332,4 @@ class DuplicateRemover:
                 if resemblance < threshold:
                     clean_blocks.append(block)
             yield BLOCK_JOIN_CHAR.join(clean_blocks)
+
